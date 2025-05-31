@@ -13,7 +13,7 @@ EXAMPLEDIR = examples
 DOCDIR = docs
 
 # Default target is help
-.PHONY: help build run test clean lint
+.PHONY: help build run test clean lint setup deps
 
 # Show help by default
 .DEFAULT_GOAL := help
@@ -56,3 +56,10 @@ lint: ## Lint Scheme and Org files
 	@echo "Linting Org files..."
 	@emacs --batch --load org-lint.el --eval '(org-lint-file "attribution-graphs-explorer.org")'
 	@emacs --batch --load org-lint.el --eval '(org-lint-file "README.org")'
+
+setup: ## Initialize the environment
+	@echo "Setting up Attribution Graphs Explorer..."
+	@./scripts/setup.sh
+
+deps: ## Check dependencies
+	@./scripts/deps.sh
