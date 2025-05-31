@@ -13,7 +13,7 @@ EXAMPLEDIR = examples
 DOCDIR = docs
 
 # Default target is help
-.PHONY: help build run test clean
+.PHONY: help build run test clean lint
 
 # Show help by default
 .DEFAULT_GOAL := help
@@ -49,3 +49,10 @@ clean: ## Clean build artifacts
 	@echo "Cleaning up..."
 	@find . -name "*.go" -delete
 	@find . -name "*~" -delete
+
+lint: ## Lint Scheme and Org files
+	@echo "Linting Scheme files..."
+	@./scheme-lint.scm src
+	@echo "Linting Org files..."
+	@emacs --batch --load org-lint.el --eval '(org-lint-file "attribution-graphs-explorer.org")'
+	@emacs --batch --load org-lint.el --eval '(org-lint-file "README.org")'

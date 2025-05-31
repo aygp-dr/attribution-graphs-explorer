@@ -1,0 +1,150 @@
+name: Lint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Guile
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y guile-3.0 guile-3.0-dev
+
+    - name: Install Org mode linter
+      run: |
+        sudo apt-get install -y emacs-nox
+        sudo mkdir -p /usr/local/share/emacs/site-lisp
+        sudo bash -c 'cat > /usr/local/share/emacs/site-lisp/org-lint-script.el << EOF
+        (require '\''org)
+        (require '\''org-lint)
+        
+        (defun org-lint-file (file)
+          "Run org-lint on FILE and print results."
+          (with-current-buffer (find-file-noselect file)
+            (let* ((checks (org-lint-select-checkers))
+                   (errors (org-lint-collect checks)))
+              (if errors
+                  (progn
+                    (message "Org-lint found %d errors in %s:" (length errors) file)
+                    (dolist (err errors)
+                      (let* ((line (car err))
+                             (checker (nth 1 err))
+                             (msg (nth 2 err)))
+                        (message "Line %d: [%s] %s" line checker msg)))
+                    (kill-emacs 1))
+                (message "Org-lint: No errors found in %s" file)
+                (kill-emacs 0)))))
+        EOF'
+
+    - name: Create Guile lint script
+      run: |
+        cat > scheme-lint.scm << EOF
+        #!/usr/bin/env guile
+        !#
+        
+        (use-modules (ice-9 ftw)
+                     (ice-9 match)
+                     (ice-9 regex)
+                     (ice-9 rdelim)
+                     (srfi srfi-1))
+        
+        ;; Simple linter rules for Scheme code
+        (define *lint-rules*
+          `(
+            ;; Check for mismatched parentheses
+            (parens . ,(lambda (line)
+                         (let ((opens (count (lambda (c) (eq? c #\()) line))
+                               (closes (count (lambda (c) (eq? c #\))) line)))
+                           (unless (= opens closes)
+                             (format #t "Mismatched parentheses: ~a opens, ~a closes~%" opens closes)))))
+            
+            ;; Check for trailing whitespace
+            (whitespace . ,(lambda (line)
+                             (when (string-match "[ \t]+$" line)
+                               (format #t "Trailing whitespace~%"))))
+            
+            ;; Check for tabs (prefer spaces)
+            (tabs . ,(lambda (line)
+                       (when (string-contains line "\t")
+                         (format #t "Tab character found (prefer spaces)~%"))))
+            
+            ;; Check for lines over 80 characters
+            (line-length . ,(lambda (line)
+                              (when (> (string-length line) 80)
+                                (format #t "Line too long: ~a characters (max 80)~%" (string-length line)))))
+          ))
+        
+        ;; Process a single file
+        (define (lint-file filename)
+          (format #t "Linting ~a~%" filename)
+          (let ((errors 0))
+            (call-with-input-file filename
+              (lambda (port)
+                (let loop ((line (read-line port)) (line-num 1))
+                  (unless (eof-object? line)
+                    (for-each
+                     (lambda (rule)
+                       (let ((check (cdr rule)))
+                         (catch #t
+                                (lambda () 
+                                  (format #t "~a:~a: " filename line-num)
+                                  (check line)
+                                  (set! errors (+ errors 1)))
+                                (lambda (key . args) #f))))
+                     *lint-rules*)
+                    (loop (read-line port) (+ line-num 1))))))
+            errors))
+        
+        ;; Lint all Scheme files in a directory
+        (define (lint-directory dir)
+          (let ((total-errors 0))
+            (ftw dir
+                 (lambda (filename statinfo flag)
+                   (if (and (eq? flag 'regular)
+                            (string-suffix? ".scm" filename))
+                       (set! total-errors (+ total-errors (lint-file filename))))
+                   #t))
+            total-errors))
+        
+        ;; Main entry point
+        (define (main args)
+          (let ((dir (if (> (length args) 1) (cadr args) ".")))
+            (let ((errors (lint-directory dir)))
+              (if (> errors 0)
+                  (begin
+                    (format #t "Found ~a errors~%" errors)
+                    (exit 1))
+                  (begin
+                    (format #t "No errors found~%")
+                    (exit 0))))))
+        
+        (main (command-line))
+        EOF
+        chmod +x scheme-lint.scm
+
+    - name: Add lint target to Makefile
+      run: |
+        echo "" >> Makefile
+        echo "lint: ## Lint Scheme and Org files" >> Makefile
+        echo "	@echo \"Linting Scheme files...\"" >> Makefile
+        echo "	@./scheme-lint.scm src" >> Makefile
+        echo "	@echo \"Linting Org files...\"" >> Makefile
+        echo "	@for f in \$(shell find . -name \"*.org\"); do emacs --batch --load /usr/local/share/emacs/site-lisp/org-lint-script.el --eval \"(org-lint-file \\\"$$f\\\")\"; done" >> Makefile
+
+    - name: Run Scheme linter
+      run: |
+        ./scheme-lint.scm src
+        
+    - name: Run Org mode linter
+      run: |
+        for f in $(find . -name "*.org"); do
+          emacs --batch --load /usr/local/share/emacs/site-lisp/org-lint-script.el --eval "(org-lint-file \"$f\")"
+        done
