@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Configuration script for Attribution Graphs Explorer
+# Generates build environment configuration
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$SCRIPT_DIR"
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+echo -e "${BLUE}Configuring Attribution Graphs Explorer...${NC}"
+
+# Check dependencies first
+"$SCRIPT_DIR/scripts/deps.sh"
+if [ $? -ne 0 ]; then
+  echo "Configuration failed: missing dependencies"
+  exit 1
+fi
+
+# Create build directory
+mkdir -p "$PROJECT_ROOT/build"
+
+# Create config.mk with detected settings
+cat > "$PROJECT_ROOT/config.mk" << EOF
+# Auto-generated configuration file
+# Generated on $(date)
+# System: $(uname -s)
+
+# Detected paths
+GUILE_BIN = $(which guile3)
+MAKE_BIN = $(which gmake)
+GREP_BIN = $(which ggrep)
+AWK_BIN = $(which gawk)
+
+# Installation paths
+PREFIX = /usr/local
+LIBDIR = \$(PREFIX)/lib
+DATADIR = \$(PREFIX)/share
+DOCDIR = \$(DATADIR)/doc/attribution-graphs-explorer
+
+# Compiler flags
+GUILE_CFLAGS = $(guile3-config compile 2>/dev/null || echo "")
+GUILE_LDFLAGS = $(guile3-config link 2>/dev/null || echo "")
+
+# Features
+HAVE_DIRENV = $(command -v direnv >/dev/null 2>&1 && echo "yes" || echo "no")
+HAVE_SHELLCHECK = $(command -v shellcheck >/dev/null 2>&1 && echo "yes" || echo "no")
+HAVE_REMAKE = $(command -v remake >/dev/null 2>&1 && echo "yes" || echo "no")
+EOF
+
+echo -e "${GREEN}Configuration complete!${NC}"
+echo "Created config.mk with detected settings"
+echo "Run 'gmake' to build the project"

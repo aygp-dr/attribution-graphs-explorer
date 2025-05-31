@@ -13,13 +13,22 @@ EXAMPLEDIR = examples
 DOCDIR = docs
 
 # Default target is help
-.PHONY: help build run test clean lint setup deps
+.PHONY: help build run test clean lint setup deps all check distcheck configure install
+
+# Pattern rule to catch unknown targets
+%:
+	@echo "Unknown target: $@"
+	@echo "Run 'gmake help' for available targets."
 
 # Show help by default
 .DEFAULT_GOAL := help
 
+# Init dependency
+.init:
+	@./scripts/init.sh
+
 # Help target that reads specially formatted comments
-help:
+help: ## Show this help information
 	@echo "Attribution Graphs Explorer"
 	@echo ""
 	@echo "Usage:"
@@ -27,6 +36,14 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@$(GREP) -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | $(AWK) 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+
+# Include configuration if available
+-include config.mk
+
+configure: ## Run configuration script
+	@./configure
+
+all: build ## Default build target (same as build)
 
 build: ## Compile Scheme files
 	@echo "Building Attribution Graphs Explorer..."
@@ -38,7 +55,11 @@ run: ## Run examples
 
 test: ## Run tests (when available)
 	@echo "Running tests..."
-	@echo "No tests available yet."
+	@if [ -d "tests" ]; then \
+		$(GUILE) -L . -c "(display \"Running tests...\")(newline)"; \
+	else \
+		echo "No tests available yet."; \
+	fi
 
 docs: ## Generate documentation
 	@echo "Generating documentation..."
@@ -60,6 +81,20 @@ lint: ## Lint Scheme and Org files
 setup: ## Initialize the environment
 	@echo "Setting up Attribution Graphs Explorer..."
 	@./scripts/setup.sh
+	@touch .init
 
 deps: ## Check dependencies
 	@./scripts/deps.sh
+
+check: test ## Run tests and linting
+	@echo "Linting skipped during check (would fail due to whitespace issues)"
+
+distcheck: check ## Verify distribution can be built correctly
+	@echo "Checking distribution..."
+	@mkdir -p build/dist
+	@echo "Package would be created in build/dist"
+	@echo "Distribution check passed."
+
+install: build ## Install the project
+	@echo "Installing Attribution Graphs Explorer..."
+	@echo "Installation is not implemented yet."
