@@ -1,0 +1,982 @@
+#+TITLE: Attribution Graphs and Circuit Tracing in Guile Scheme
+#+AUTHOR: Tutorial on Transformer Circuit Analysis
+#+DATE: [2025-05-31]
+#+OPTIONS: toc:2 num:t
+#+PROPERTY: header-args:scheme :tangle yes :mkdirp t
+
+* Introduction
+
+This tutorial implements the mathematical framework from "Circuit Tracing: Revealing Computational Graphs in Language Models" in Guile Scheme. We'll build a system to trace computational graphs through transformer models using cross-layer transcoders (CLT) and attribution graphs.
+
+** Overview
+
+#+begin_src mermaid :file overview.png :mkdirp t
+graph TD
+    A[Input Tokens] --> B[Token Embeddings]
+    B --> C[Cross-Layer Transcoder]
+    C --> D[Feature Activations]
+    D --> E[Attribution Graph]
+    E --> F[Output Logits]
+    
+    style C fill:#f9f,stroke:#333,stroke-width:4px
+    style E fill:#bbf,stroke:#333,stroke-width:4px
+#+end_src
+
+The key insight is that cross-layer transcoders allow us to bypass MLP nonlinearities, creating linear feature-to-feature interactions that can be traced through the network.
+
+* Mathematical Foundations
+
+** Feature Activation Model
+
+In the attribution graph framework, each feature's activation is an affine function with thresholding:
+
+#+begin_src scheme :tangle src/math/activation.scm :mkdirp t
+(define-module (attribution-graphs math activation)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-43)
+  #:export (feature-activation
+            relu
+            affine-transform))
+
+;; ReLU activation function
+(define (relu x)
+  "Apply ReLU activation: max(0, x)"
+  (max 0 x))
+
+;; Affine transformation: E_i · x + b_i
+(define (affine-transform weights input bias)
+  "Compute affine transformation: weights · input + bias"
+  (+ (dot-product weights input) bias))
+
+;; Feature activation: ReLU(E_i · x + b_i)
+(define (feature-activation encoder-weights residual-stream bias)
+  "Compute feature activation as thresholded affine function"
+  (relu (affine-transform encoder-weights residual-stream bias)))
+
+;; Helper: dot product
+(define (dot-product vec1 vec2)
+  "Compute dot product of two vectors"
+  (fold + 0 (map * vec1 vec2)))
+#+end_src
+
+** Cross-Layer Transcoder (CLT)
+
+The CLT reads from the residual stream at one layer and contributes to all subsequent MLP layers:
+
+#+begin_src scheme :tangle src/clt/transcoder.scm :mkdirp t
+(define-module (attribution-graphs clt transcoder)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-43)
+  #:use-module (attribution-graphs math activation)
+  #:export (make-clt
+            clt-forward
+            clt-encode
+            clt-decode))
+
+;; Cross-Layer Transcoder structure
+(define-record-type <clt>
+  (make-clt-internal encoder decoder read-layer write-layers feature-dim)
+  clt?
+  (encoder clt-encoder)           ; Encoding matrix
+  (decoder clt-decoder)           ; Decoding matrices per layer
+  (read-layer clt-read-layer)     ; Layer to read from
+  (write-layers clt-write-layers) ; Layers to write to
+  (feature-dim clt-feature-dim))  ; Feature dimension
+
+;; Constructor
+(define (make-clt read-layer write-layers input-dim feature-dim output-dim)
+  "Create a new Cross-Layer Transcoder"
+  (let ((encoder (make-random-matrix feature-dim input-dim))
+        (decoder (make-hash-table)))
+    ;; Initialize decoder matrices for each write layer
+    (for-each (lambda (layer)
+                (hash-set! decoder layer 
+                          (make-random-matrix output-dim feature-dim)))
+              write-layers)
+    (make-clt-internal encoder decoder read-layer write-layers feature-dim)))
+
+;; Encoding: residual stream -> features
+(define (clt-encode clt residual-stream)
+  "Encode residual stream into sparse features"
+  (let* ((encoder (clt-encoder clt))
+         (num-features (clt-feature-dim clt))
+         (features (make-vector num-features 0)))
+    ;; Compute feature activations
+    (do ((i 0 (+ i 1)))
+        ((>= i num-features) features)
+      (let ((encoder-row (matrix-row encoder i))
+            (bias 0)) ; Simplified: zero bias
+        (vector-set! features i
+                    (feature-activation encoder-row residual-stream bias))))))
+
+;; Decoding: features -> MLP outputs for specific layer
+(define (clt-decode clt features target-layer)
+  "Decode features to MLP output for target layer"
+  (let ((decoder-matrix (hash-ref (clt-decoder clt) target-layer)))
+    (matrix-vector-multiply decoder-matrix features)))
+
+;; Forward pass through CLT
+(define (clt-forward clt residual-stream)
+  "Complete forward pass: encode then decode for all layers"
+  (let ((features (clt-encode clt residual-stream))
+        (outputs (make-hash-table)))
+    (for-each (lambda (layer)
+                (hash-set! outputs layer
+                          (clt-decode clt features layer)))
+              (clt-write-layers clt))
+    outputs))
+#+end_src
+
+** Matrix Operations
+
+Helper functions for matrix operations:
+
+#+begin_src scheme :tangle src/math/matrix.scm :mkdirp t
+(define-module (attribution-graphs math matrix)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-43)
+  #:export (make-matrix
+            make-random-matrix
+            matrix-row
+            matrix-vector-multiply
+            matrix-multiply
+            jacobian))
+
+;; Create matrix filled with zeros
+(define (make-matrix rows cols)
+  "Create a rows×cols matrix filled with zeros"
+  (make-vector rows (lambda () (make-vector cols 0))))
+
+;; Create random matrix (simplified)
+(define (make-random-matrix rows cols)
+  "Create a rows×cols matrix with random values"
+  (let ((matrix (make-vector rows)))
+    (do ((i 0 (+ i 1)))
+        ((>= i rows) matrix)
+      (vector-set! matrix i 
+                   (list->vector 
+                    (map (lambda (_) (- (random:uniform) 0.5))
+                         (iota cols)))))))
+
+;; Get row from matrix
+(define (matrix-row matrix i)
+  "Get i-th row of matrix as vector"
+  (vector-ref matrix i))
+
+;; Matrix-vector multiplication
+(define (matrix-vector-multiply matrix vec)
+  "Multiply matrix by vector"
+  (let* ((rows (vector-length matrix))
+         (result (make-vector rows)))
+    (do ((i 0 (+ i 1)))
+        ((>= i rows) result)
+      (vector-set! result i
+                   (dot-product (matrix-row matrix i) vec)))))
+
+;; Matrix multiplication
+(define (matrix-multiply A B)
+  "Multiply two matrices A and B"
+  (let* ((m (vector-length A))
+         (n (vector-length (vector-ref B 0)))
+         (k (vector-length B))
+         (C (make-matrix m n)))
+    (do ((i 0 (+ i 1)))
+        ((>= i m) C)
+      (do ((j 0 (+ j 1)))
+          ((>= j n))
+        (let ((sum 0))
+          (do ((l 0 (+ l 1)))
+              ((>= l k))
+            (set! sum (+ sum (* (vector-ref (vector-ref A i) l)
+                               (vector-ref (vector-ref B l) j)))))
+          (vector-set! (vector-ref C i) j sum))))))
+
+;; Compute Jacobian matrix
+(define (jacobian output-fn input-vec)
+  "Compute Jacobian matrix of output-fn w.r.t. input-vec"
+  (let* ((n (vector-length input-vec))
+         (epsilon 1e-6)
+         (base-output (output-fn input-vec))
+         (m (vector-length base-output))
+         (J (make-matrix m n)))
+    ;; Numerical differentiation
+    (do ((j 0 (+ j 1)))
+        ((>= j n) J)
+      (let ((perturbed (vector-copy input-vec)))
+        (vector-set! perturbed j (+ (vector-ref perturbed j) epsilon))
+        (let ((perturbed-output (output-fn perturbed)))
+          (do ((i 0 (+ i 1)))
+              ((>= i m))
+            (vector-set! (vector-ref J i) j
+                        (/ (- (vector-ref perturbed-output i)
+                              (vector-ref base-output i))
+                           epsilon))))))))
+
+;; Helper for matrix operations
+(define (dot-product vec1 vec2)
+  "Compute dot product of two vectors"
+  (fold + 0 (map * (vector->list vec1) (vector->list vec2))))
+#+end_src
+
+* Attribution Graph Construction
+
+** Graph Data Structure
+
+#+begin_src scheme :tangle src/graph/structure.scm :mkdirp t
+(define-module (attribution-graphs graph structure)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-9)
+  #:export (make-node
+            make-edge
+            make-attribution-graph
+            add-node!
+            add-edge!
+            node-id
+            node-type
+            node-activation
+            edge-source
+            edge-target
+            edge-weight
+            graph-nodes
+            graph-edges))
+
+;; Node in attribution graph
+(define-record-type <node>
+  (make-node id type activation metadata)
+  node?
+  (id node-id)                ; Unique identifier
+  (type node-type)            ; 'feature, 'token, 'error, 'logit
+  (activation node-activation) ; Activation value
+  (metadata node-metadata))    ; Additional info
+
+;; Edge in attribution graph
+(define-record-type <edge>
+  (make-edge source target weight)
+  edge?
+  (source edge-source)   ; Source node ID
+  (target edge-target)   ; Target node ID  
+  (weight edge-weight))  ; Attribution weight
+
+;; Attribution graph
+(define-record-type <attribution-graph>
+  (make-attribution-graph-internal nodes edges)
+  attribution-graph?
+  (nodes graph-nodes-internal graph-set-nodes!)
+  (edges graph-edges-internal graph-set-edges!))
+
+;; Constructor
+(define (make-attribution-graph)
+  "Create empty attribution graph"
+  (make-attribution-graph-internal 
+   (make-hash-table)  ; nodes by ID
+   '()))              ; list of edges
+
+;; Add node to graph
+(define (add-node! graph node)
+  "Add node to attribution graph"
+  (hash-set! (graph-nodes-internal graph) 
+             (node-id node) 
+             node))
+
+;; Add edge to graph
+(define (add-edge! graph edge)
+  "Add edge to attribution graph"
+  (graph-set-edges! graph 
+                    (cons edge (graph-edges-internal graph))))
+
+;; Getters
+(define (graph-nodes graph)
+  "Get all nodes as list"
+  (hash-map->list (lambda (k v) v) 
+                  (graph-nodes-internal graph)))
+
+(define (graph-edges graph)
+  "Get all edges"
+  (graph-edges-internal graph))
+#+end_src
+
+** Backward Jacobian Attribution
+
+The core algorithm traces attributions backward through the network using the Jacobian:
+
+#+begin_src scheme :tangle src/graph/attribution.scm :mkdirp t
+(define-module (attribution-graphs graph attribution)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-43)
+  #:use-module (attribution-graphs graph structure)
+  #:use-module (attribution-graphs math matrix)
+  #:export (compute-attribution-graph
+            backward-attribution
+            prune-graph))
+
+;; Compute attribution from source to target features
+(define (compute-attribution source-features target-features jacobian-matrix)
+  "Compute attribution weights using Jacobian"
+  (let* ((n-source (vector-length source-features))
+         (n-target (vector-length target-features))
+         (attributions (make-matrix n-target n-source)))
+    ;; Attribution = Jacobian × source activations
+    (do ((i 0 (+ i 1)))
+        ((>= i n-target) attributions)
+      (do ((j 0 (+ j 1)))
+          ((>= j n-source))
+        (let ((jacob-ij (vector-ref (vector-ref jacobian-matrix i) j))
+              (source-j (vector-ref source-features j)))
+          (vector-set! (vector-ref attributions i) j
+                      (* jacob-ij source-j)))))))
+
+;; Backward attribution through one layer
+(define (backward-attribution current-features prev-features layer-fn)
+  "Compute attributions from previous to current layer features"
+  (let* ((jacobian-fn (lambda (x) (layer-fn x)))
+         (J (jacobian jacobian-fn prev-features)))
+    (compute-attribution prev-features current-features J)))
+
+;; Build complete attribution graph
+(define (compute-attribution-graph clt prompt target-token)
+  "Build attribution graph for target token in prompt"
+  (let ((graph (make-attribution-graph))
+        (layer-features (make-hash-table))) ; features at each layer
+    
+    ;; Forward pass to collect features
+    (forward-pass-collect-features! clt prompt layer-features)
+    
+    ;; Backward pass to compute attributions
+    (backward-pass-attributions! layer-features graph target-token)
+    
+    ;; Prune to keep only significant paths
+    (prune-graph graph 0.1))) ; threshold = 0.1
+
+;; Graph pruning
+(define (prune-graph graph threshold)
+  "Remove edges with attribution below threshold"
+  (let ((pruned (make-attribution-graph)))
+    ;; Copy nodes
+    (for-each (lambda (node) (add-node! pruned node))
+              (graph-nodes graph))
+    ;; Filter edges
+    (for-each (lambda (edge)
+                (when (> (abs (edge-weight edge)) threshold)
+                  (add-edge! pruned edge)))
+              (graph-edges graph))
+    pruned))
+
+;; Helper: Forward pass to collect features
+(define (forward-pass-collect-features! clt prompt layer-features)
+  "Run forward pass and store features at each layer"
+  ;; Implementation depends on model architecture
+  ;; This is a simplified placeholder
+  (let ((embeddings (embed-tokens prompt)))
+    (hash-set! layer-features 0 embeddings)
+    ;; Process through layers...
+    ))
+
+;; Helper: Backward attribution pass
+(define (backward-pass-attributions! layer-features graph target-token)
+  "Compute attributions backward from target"
+  ;; Start from output logits
+  (let ((n-layers (hash-count layer-features)))
+    (do ((l (- n-layers 1) (- l 1)))
+        ((< l 1))
+      (let ((curr-features (hash-ref layer-features l))
+            (prev-features (hash-ref layer-features (- l 1))))
+        ;; Compute attributions between layers
+        ;; Add nodes and edges to graph
+        ))))
+#+end_src
+
+* Implementation: Circuit Tracing
+
+** Circuit Discovery
+
+Finding interpretable circuits in the attribution graph:
+
+#+begin_src scheme :tangle src/circuits/discovery.scm :mkdirp t
+(define-module (attribution-graphs circuits discovery)
+  #:use-module (srfi srfi-1)
+  #:use-module (attribution-graphs graph structure)
+  #:use-module (attribution-graphs graph attribution)
+  #:export (find-circuits
+            trace-path
+            identify-motifs))
+
+;; Find all paths from source to target nodes
+(define (find-all-paths graph source-id target-id)
+  "Find all paths from source to target node"
+  (define (dfs current-id visited path)
+    (if (equal? current-id target-id)
+        (list (reverse (cons current-id path)))
+        (let ((neighbors (get-neighbors graph current-id)))
+          (append-map
+           (lambda (neighbor)
+             (if (member neighbor visited)
+                 '()
+                 (dfs neighbor 
+                      (cons current-id visited)
+                      (cons current-id path))))
+           neighbors))))
+  (dfs source-id '() '()))
+
+;; Get neighbor nodes
+(define (get-neighbors graph node-id)
+  "Get IDs of nodes connected from given node"
+  (map edge-target
+       (filter (lambda (edge)
+                 (equal? (edge-source edge) node-id))
+               (graph-edges graph))))
+
+;; Trace strongest path
+(define (trace-path graph source-id target-id)
+  "Trace path with highest attribution from source to target"
+  (let ((paths (find-all-paths graph source-id target-id)))
+    (if (null? paths)
+        #f
+        (max-by path-strength paths))))
+
+;; Compute path strength
+(define (path-strength path graph)
+  "Compute total attribution strength of path"
+  (if (< (length path) 2)
+      0
+      (let loop ((nodes path)
+                 (strength 1))
+        (if (null? (cdr nodes))
+            strength
+            (let* ((edge (find-edge graph (car nodes) (cadr nodes)))
+                   (weight (if edge (edge-weight edge) 0)))
+              (loop (cdr nodes) (* strength weight)))))))
+
+;; Find edge between two nodes
+(define (find-edge graph source-id target-id)
+  "Find edge from source to target"
+  (find (lambda (edge)
+          (and (equal? (edge-source edge) source-id)
+               (equal? (edge-target edge) target-id)))
+        (graph-edges graph)))
+
+;; Identify common circuit motifs
+(define (identify-motifs graph)
+  "Identify common patterns in attribution graph"
+  (let ((motifs '()))
+    ;; Skip connections
+    (set! motifs (cons (find-skip-connections graph) motifs))
+    ;; Bottlenecks
+    (set! motifs (cons (find-bottlenecks graph) motifs))
+    ;; Parallel paths
+    (set! motifs (cons (find-parallel-paths graph) motifs))
+    motifs))
+
+;; Pattern: Skip connections
+(define (find-skip-connections graph)
+  "Find features that connect across multiple layers"
+  ;; Implementation would analyze edge patterns
+  '(skip-connections))
+
+;; Pattern: Bottlenecks
+(define (find-bottlenecks graph)
+  "Find nodes with high in/out degree"
+  (let ((in-degree (make-hash-table))
+        (out-degree (make-hash-table)))
+    ;; Count degrees
+    (for-each (lambda (edge)
+                (hash-update! in-degree (edge-target edge) 1+ 0)
+                (hash-update! out-degree (edge-source edge) 1+ 0))
+              (graph-edges graph))
+    ;; Find bottlenecks
+    (filter (lambda (node)
+              (or (> (hash-ref in-degree (node-id node) 0) 10)
+                  (> (hash-ref out-degree (node-id node) 0) 10)))
+            (graph-nodes graph))))
+
+;; Helper utilities
+(define (max-by fn lst)
+  "Find element that maximizes fn"
+  (if (null? lst)
+      #f
+      (fold (lambda (x best)
+              (if (> (fn x) (fn best)) x best))
+            (car lst)
+            (cdr lst))))
+
+(define (hash-update! table key fn default)
+  "Update hash table value with function"
+  (hash-set! table key 
+             (fn (hash-ref table key default))))
+#+end_src
+
+** Circuit Visualization
+
+Generate Mermaid diagrams for circuits:
+
+#+begin_src scheme :tangle src/circuits/visualization.scm :mkdirp t
+(define-module (attribution-graphs circuits visualization)
+  #:use-module (srfi srfi-1)
+  #:use-module (attribution-graphs graph structure)
+  #:export (graph->mermaid
+            circuit->mermaid
+            feature->label))
+
+;; Convert attribution graph to Mermaid diagram
+(define (graph->mermaid graph)
+  "Generate Mermaid diagram from attribution graph"
+  (string-append
+   "graph TD\n"
+   (string-join
+    (append
+     ;; Node definitions
+     (map (lambda (node)
+            (format #f "    ~a[~a]"
+                    (node-id node)
+                    (feature->label node)))
+          (graph-nodes graph))
+     ;; Edge definitions  
+     (map (lambda (edge)
+            (format #f "    ~a -->|~,2f| ~a"
+                    (edge-source edge)
+                    (edge-weight edge)
+                    (edge-target edge)))
+          (graph-edges graph)))
+    "\n")
+   "\n"
+   ;; Styling
+   (generate-node-styles graph)))
+
+;; Generate node styling based on type
+(define (generate-node-styles graph)
+  "Generate Mermaid styles for different node types"
+  (string-join
+   (map (lambda (type style)
+          (let ((nodes (filter (lambda (n) (eq? (node-type n) type))
+                              (graph-nodes graph))))
+            (if (null? nodes)
+                ""
+                (format #f "    style ~a ~a"
+                        (string-join (map (lambda (n) 
+                                           (symbol->string (node-id n)))
+                                         nodes) ",")
+                        style))))
+        '(feature token error logit)
+        '("fill:#f9f" "fill:#9f9" "fill:#f99" "fill:#99f"))
+   "\n"))
+
+;; Convert circuit to focused Mermaid diagram
+(define (circuit->mermaid circuit graph)
+  "Generate Mermaid diagram highlighting specific circuit"
+  (let ((circuit-nodes (make-hash-table))
+        (circuit-edges (make-hash-table)))
+    ;; Mark circuit nodes and edges
+    (for-each (lambda (path)
+                (for-each (lambda (node-id)
+                            (hash-set! circuit-nodes node-id #t))
+                          path)
+                ;; Mark edges in path
+                (let loop ((nodes path))
+                  (when (>= (length nodes) 2)
+                    (hash-set! circuit-edges 
+                               (cons (car nodes) (cadr nodes)) #t)
+                    (loop (cdr nodes)))))
+              circuit)
+    ;; Generate diagram with highlighting
+    (graph->mermaid-highlighted graph circuit-nodes circuit-edges)))
+
+;; Feature to human-readable label
+(define (feature->label node)
+  "Convert feature node to readable label"
+  (let ((metadata (node-metadata node)))
+    (case (node-type node)
+      ((feature) 
+       (format #f "F~a: ~a" 
+               (node-id node)
+               (hash-ref metadata 'interpretation "?")))
+      ((token)
+       (format #f "T: ~a"
+               (hash-ref metadata 'token "")))
+      ((error)
+       "Error")
+      ((logit)
+       (format #f "L: ~a"
+               (hash-ref metadata 'token "")))
+      (else
+       (symbol->string (node-id node))))))
+
+;; Helper for highlighted graph
+(define (graph->mermaid-highlighted graph highlight-nodes highlight-edges)
+  "Generate Mermaid with highlighted circuit"
+  ;; Similar to graph->mermaid but with special styling
+  ;; for highlighted elements
+  (string-append
+   "graph TD\n"
+   ;; ... implementation ...
+   ))
+#+end_src
+
+* Validation and Analysis
+
+** Perturbation Experiments
+
+Validate discovered circuits through interventions:
+
+#+begin_src scheme :tangle src/validation/perturbation.scm :mkdirp t
+(define-module (attribution-graphs validation perturbation)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-43)
+  #:export (perturbation-test
+            measure-causal-effect
+            validate-circuit))
+
+;; Perturbation in feature direction
+(define (perturb-features features feature-id magnitude)
+  "Apply perturbation to specific feature"
+  (let ((perturbed (vector-copy features)))
+    (vector-set! perturbed feature-id
+                 (+ (vector-ref perturbed feature-id) magnitude))
+    perturbed))
+
+;; Measure causal effect of perturbation
+(define (measure-causal-effect model input source-feature target-feature magnitude)
+  "Measure how perturbing source affects target"
+  (let* ((baseline (run-model model input))
+         (baseline-target (vector-ref baseline target-feature))
+         (perturbed-input (perturb-at-feature input source-feature magnitude))
+         (perturbed-output (run-model model perturbed-input))
+         (perturbed-target (vector-ref perturbed-output target-feature)))
+    (- perturbed-target baseline-target)))
+
+;; Test if edge in attribution graph is causal
+(define (test-edge-causality graph edge model input)
+  "Test if edge represents true causal relationship"
+  (let* ((source (edge-source edge))
+         (target (edge-target edge))
+         (predicted-effect (edge-weight edge))
+         (measured-effect (measure-causal-effect model input source target 1.0))
+         (correlation (/ measured-effect (+ (abs predicted-effect) 1e-6))))
+    (> correlation 0.5))) ; Threshold for considering edge valid
+
+;; Validate entire circuit
+(define (validate-circuit circuit graph model test-inputs)
+  "Validate circuit across multiple test inputs"
+  (let ((validation-scores '()))
+    (for-each (lambda (input)
+                (let ((score (validate-circuit-single circuit graph model input)))
+                  (set! validation-scores (cons score validation-scores))))
+              test-inputs)
+    ;; Return average validation score
+    (/ (apply + validation-scores) (length validation-scores))))
+
+;; Validate circuit on single input
+(define (validate-circuit-single circuit graph model input)
+  "Compute validation score for circuit on one input"
+  (let ((edge-scores '()))
+    ;; Test each edge in circuit
+    (for-each (lambda (path)
+                (let loop ((nodes path))
+                  (when (>= (length nodes) 2)
+                    (let* ((edge (find-edge graph (car nodes) (cadr nodes)))
+                           (valid? (test-edge-causality graph edge model input)))
+                      (set! edge-scores (cons (if valid? 1 0) edge-scores)))
+                    (loop (cdr nodes)))))
+              circuit)
+    ;; Return fraction of valid edges
+    (if (null? edge-scores)
+        0
+        (/ (apply + edge-scores) (length edge-scores)))))
+
+;; Helper to run model (placeholder)
+(define (run-model model input)
+  "Run model forward pass"
+  ;; Implementation depends on model architecture
+  (vector 0 0 0))
+
+;; Helper to perturb at specific feature
+(define (perturb-at-feature input feature-id magnitude)
+  "Apply perturbation at feature level"
+  ;; Implementation depends on model architecture
+  input)
+#+end_src
+
+** Metrics and Evaluation
+
+#+begin_src scheme :tangle src/validation/metrics.scm :mkdirp t
+(define-module (attribution-graphs validation metrics)
+  #:use-module (srfi srfi-1)
+  #:export (graph-sparsity
+            path-coverage
+            attribution-concentration
+            compare-methods))
+
+;; Graph sparsity metric
+(define (graph-sparsity graph)
+  "Measure sparsity of attribution graph"
+  (let* ((n-nodes (length (graph-nodes graph)))
+         (n-edges (length (graph-edges graph)))
+         (max-edges (* n-nodes (- n-nodes 1))))
+    (if (= max-edges 0)
+        1.0
+        (- 1.0 (/ n-edges max-edges)))))
+
+;; Path coverage metric
+(define (path-coverage graph important-paths)
+  "Fraction of important paths captured in graph"
+  (let ((found 0))
+    (for-each (lambda (path)
+                (when (path-exists? graph path)
+                  (set! found (+ found 1))))
+              important-paths)
+    (if (null? important-paths)
+        1.0
+        (/ found (length important-paths)))))
+
+;; Check if path exists in graph
+(define (path-exists? graph path)
+  "Check if path exists in graph"
+  (let loop ((nodes path))
+    (if (< (length nodes) 2)
+        #t
+        (and (find-edge graph (car nodes) (cadr nodes))
+             (loop (cdr nodes))))))
+
+;; Attribution concentration
+(define (attribution-concentration graph)
+  "Measure how concentrated attributions are"
+  (let* ((weights (map edge-weight (graph-edges graph)))
+         (total (apply + (map abs weights)))
+         (sorted (sort (map abs weights) >))
+         (cumsum 0)
+         (edges-needed 0))
+    ;; Find how many edges account for 90% of attribution
+    (let loop ((remaining sorted))
+      (if (or (null? remaining) (>= cumsum (* 0.9 total)))
+          (/ edges-needed (length weights))
+          (begin
+            (set! cumsum (+ cumsum (car remaining)))
+            (set! edges-needed (+ edges-needed 1))
+            (loop (cdr remaining)))))))
+
+;; Compare different methods
+(define (compare-methods graphs labels)
+  "Compare attribution graphs from different methods"
+  (let ((metrics (make-hash-table)))
+    (for-each (lambda (graph label)
+                (hash-set! metrics label
+                          `((sparsity . ,(graph-sparsity graph))
+                            (concentration . ,(attribution-concentration graph))
+                            (nodes . ,(length (graph-nodes graph)))
+                            (edges . ,(length (graph-edges graph))))))
+              graphs labels)
+    metrics))
+
+;; Find edge helper (from earlier module)
+(define (find-edge graph source-id target-id)
+  "Find edge from source to target"
+  (find (lambda (edge)
+          (and (equal? (edge-source edge) source-id)
+               (equal? (edge-target edge) target-id)))
+        (graph-edges graph)))
+#+end_src
+
+* Example Usage
+
+** Poetry Generation Circuit
+
+Analyzing how the model plans rhyming words in poetry:
+
+#+begin_src scheme :tangle examples/poetry-circuit.scm :mkdirp t
+(define-module (attribution-graphs examples poetry-circuit)
+  #:use-module (attribution-graphs clt transcoder)
+  #:use-module (attribution-graphs graph attribution)
+  #:use-module (attribution-graphs circuits discovery)
+  #:use-module (attribution-graphs circuits visualization)
+  #:export (analyze-poetry-planning))
+
+;; Analyze poetry generation planning
+(define (analyze-poetry-planning model prompt)
+  "Analyze how model plans rhyming in poetry"
+  (let* ((clt (model-clt model))
+         (lines (string-split prompt #\newline))
+         (target-position (find-rhyme-position lines))
+         (graph (compute-attribution-graph clt prompt target-position)))
+    
+    ;; Find planning features
+    (let ((planning-features (find-planning-features graph))
+          (rhyme-features (find-rhyme-features graph)))
+      
+      ;; Trace circuits
+      (let ((circuits (map (lambda (pf)
+                            (map (lambda (rf)
+                                  (trace-path graph 
+                                            (node-id pf) 
+                                            (node-id rf)))
+                                rhyme-features))
+                          planning-features)))
+        
+        ;; Visualize
+        (display "Poetry Planning Circuit:\n")
+        (display (circuit->mermaid circuits graph))
+        
+        ;; Return analysis
+        `((planning-features . ,planning-features)
+          (rhyme-features . ,rhyme-features)
+          (circuits . ,circuits)
+          (graph . ,graph))))))
+
+;; Find features that plan ahead
+(define (find-planning-features graph)
+  "Identify features active at line breaks that plan ahead"
+  (filter (lambda (node)
+            (and (eq? (node-type node) 'feature)
+                 (string-contains (hash-ref (node-metadata node) 
+                                          'interpretation "")
+                                "plan")))
+          (graph-nodes graph)))
+
+;; Find rhyme-related features  
+(define (find-rhyme-features graph)
+  "Identify features related to rhyming"
+  (filter (lambda (node)
+            (and (eq? (node-type node) 'feature)
+                 (string-contains (hash-ref (node-metadata node)
+                                          'interpretation "")
+                                "rhyme")))
+          (graph-nodes graph)))
+
+;; Helper to find rhyme position
+(define (find-rhyme-position lines)
+  "Find position where rhyme is generated"
+  ;; Simplified: return end of last line
+  (string-length (string-join lines "\n")))
+#+end_src
+
+** Multi-hop Reasoning Circuit
+
+Analyzing factual recall with intermediate steps:
+
+#+begin_src scheme :tangle examples/reasoning-circuit.scm :mkdirp t
+(define-module (attribution-graphs examples reasoning-circuit)
+  #:use-module (attribution-graphs clt transcoder)
+  #:use-module (attribution-graphs graph attribution)
+  #:use-module (attribution-graphs validation perturbation)
+  #:export (analyze-multihop-reasoning))
+
+;; Analyze multi-hop reasoning
+(define (analyze-multihop-reasoning model prompt)
+  "Analyze multi-step reasoning in factual recall"
+  ;; Example: "The capital of the state containing Dallas is"
+  (let* ((clt (model-clt model))
+         (graph (compute-attribution-graph clt prompt 'last-token))
+         (steps (identify-reasoning-steps graph)))
+    
+    ;; Validate intermediate steps
+    (let ((validation-results
+           (map (lambda (step)
+                  (validate-reasoning-step model prompt step))
+                steps)))
+      
+      ;; Create visualization
+      (display "Multi-hop Reasoning Circuit:\n")
+      (display (visualize-reasoning-chain steps graph))
+      
+      `((prompt . ,prompt)
+        (steps . ,steps)
+        (validation . ,validation-results)
+        (graph . ,graph)))))
+
+;; Identify reasoning steps
+(define (identify-reasoning-steps graph)
+  "Find intermediate reasoning steps in graph"
+  (let ((concept-features (find-concept-features graph)))
+    ;; Group into reasoning chain
+    (group-into-chain concept-features graph)))
+
+;; Find conceptual features
+(define (find-concept-features graph)
+  "Find features representing concepts"
+  (filter (lambda (node)
+            (and (eq? (node-type node) 'feature)
+                 (> (node-activation node) 0.5)))
+          (graph-nodes graph)))
+
+;; Group features into reasoning chain
+(define (group-into-chain features graph)
+  "Order features into reasoning sequence"
+  ;; Simplified: sort by graph depth
+  (sort features
+        (lambda (a b)
+          (< (node-depth graph a) (node-depth graph b)))))
+
+;; Compute node depth in graph
+(define (node-depth graph node)
+  "Compute depth of node from inputs"
+  ;; Simplified implementation
+  0)
+
+;; Validate reasoning step
+(define (validate-reasoning-step model prompt step)
+  "Validate that step is causally important"
+  (let* ((baseline (run-model-on-prompt model prompt))
+         (suppressed (run-with-suppression model prompt step))
+         (difference (measure-output-change baseline suppressed)))
+    `((step . ,step)
+      (importance . ,difference))))
+
+;; Visualize reasoning chain
+(define (visualize-reasoning-chain steps graph)
+  "Create Mermaid diagram of reasoning steps"
+  (string-append
+   "graph LR\n"
+   (string-join
+    (map (lambda (step i)
+           (format #f "    Step~a[~a]" 
+                   i 
+                   (hash-ref (node-metadata step) 'concept "?")))
+         steps
+         (iota (length steps)))
+    " --> ")
+   "\n"))
+
+;; Placeholder functions
+(define (run-model-on-prompt model prompt) '())
+(define (run-with-suppression model prompt step) '())
+(define (measure-output-change baseline suppressed) 0.8)
+#+end_src
+
+* Conclusion
+
+This tutorial has implemented the key mathematical concepts from the attribution graphs paper in Guile Scheme:
+
+1. **Cross-Layer Transcoders (CLT)**: Feature extraction that bypasses MLP nonlinearities
+2. **Attribution Graphs**: Linear computational graphs with nodes (features) and weighted edges (attributions)
+3. **Backward Jacobian**: Tracing attributions through the network
+4. **Circuit Discovery**: Finding interpretable computational pathways
+5. **Validation**: Perturbation experiments to verify causal relationships
+
+The implementation provides a foundation for mechanistic interpretability research, allowing researchers to:
+- Trace how models process information
+- Discover computational circuits
+- Validate hypotheses about model behavior
+- Visualize internal mechanisms
+
+Future work could extend this framework to:
+- Handle attention mechanisms (QK circuits)
+- Incorporate global weight analysis
+- Scale to larger models
+- Develop automated circuit discovery algorithms
+
+#+begin_src scheme :tangle examples/run-all.scm :mkdirp t
+#!/usr/bin/env guile
+!#
+
+;; Load and run all examples
+(add-to-load-path (dirname (current-filename)))
+
+(use-modules (attribution-graphs examples poetry-circuit)
+             (attribution-graphs examples reasoning-circuit))
+
+(display "Attribution Graphs in Guile Scheme\n")
+(display "==================================\n\n")
+
+;; Run examples with mock data
+(display "Running examples with mock data...\n")
+
+;; Note: These require actual model implementations
+;; This is for demonstration purposes
+#+end_src
