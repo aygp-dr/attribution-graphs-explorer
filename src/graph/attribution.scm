@@ -35,13 +35,13 @@
   "Build attribution graph for target token in prompt"
   (let ((graph (make-attribution-graph))
         (layer-features (make-hash-table))) ; features at each layer
-    
+
     ;; Forward pass to collect features
     (forward-pass-collect-features! clt prompt layer-features)
-    
+
     ;; Backward pass to compute attributions
     (backward-pass-attributions! layer-features graph target-token)
-    
+
     ;; Prune to keep only significant paths
     (prune-graph graph 0.1))) ; threshold = 0.1
 

@@ -17,7 +17,7 @@
            (lambda (neighbor)
              (if (member neighbor visited)
                  '()
-                 (dfs neighbor 
+                 (dfs neighbor
                       (cons current-id visited)
                       (cons current-id path))))
            neighbors))))
@@ -106,5 +106,5 @@
 
 (define (hash-update! table key fn default)
   "Update hash table value with function"
-  (hash-set! table key 
+  (hash-set! table key
              (fn (hash-ref table key default))))

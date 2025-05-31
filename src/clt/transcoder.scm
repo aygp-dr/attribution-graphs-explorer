@@ -24,7 +24,7 @@
         (decoder (make-hash-table)))
     ;; Initialize decoder matrices for each write layer
     (for-each (lambda (layer)
-                (hash-set! decoder layer 
+                (hash-set! decoder layer
                           (make-random-matrix output-dim feature-dim)))
               write-layers)
     (make-clt-internal encoder decoder read-layer write-layers feature-dim)))
