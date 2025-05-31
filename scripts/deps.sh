@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Dependency checker for Attribution Graphs Explorer
 # Verifies that all required tools are available
 

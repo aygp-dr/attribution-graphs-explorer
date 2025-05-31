@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Setup script for Attribution Graphs Explorer
 # Initializes the environment and creates .init marker
 
@@ -15,22 +15,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 INIT_FILE="$PROJECT_ROOT/.init"
 
-echo -e "${BLUE}=€ Setting up Attribution Graphs Explorer...${NC}"
+echo -e "${BLUE}=ï¿½ Setting up Attribution Graphs Explorer...${NC}"
 
 # Check if already initialized
 if [ -f "$INIT_FILE" ]; then
-  echo -e "${YELLOW}  Environment already initialized.${NC}"
+  echo -e "${YELLOW}ï¿½ Environment already initialized.${NC}"
   echo "If you want to reinitialize, remove $INIT_FILE and run this script again."
   exit 0
 fi
 
 # Run dependency check
-echo -e "${BLUE}=Ë Checking dependencies...${NC}"
+echo -e "${BLUE}=ï¿½ Checking dependencies...${NC}"
 "$SCRIPT_DIR/deps.sh"
 DEPS_STATUS=$?
 
 if [ $DEPS_STATUS -ne 0 ]; then
-  echo -e "${YELLOW}  Some dependencies might be missing.${NC}"
+  echo -e "${YELLOW}ï¿½ Some dependencies might be missing.${NC}"
   read -p "Continue anyway? (y/n) " -n 1 -r
   echo
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -40,12 +40,12 @@ if [ $DEPS_STATUS -ne 0 ]; then
 fi
 
 # Create necessary directories
-echo -e "${BLUE}=Á Creating required directories...${NC}"
+echo -e "${BLUE}=ï¿½ Creating required directories...${NC}"
 mkdir -p "$PROJECT_ROOT/build"
 mkdir -p "$PROJECT_ROOT/docs/generated"
 
 # Setup example environment
-echo -e "${BLUE}>ê Setting up example environment...${NC}"
+echo -e "${BLUE}>ï¿½ Setting up example environment...${NC}"
 if [ ! -f "$PROJECT_ROOT/.env.example" ]; then
   cat > "$PROJECT_ROOT/.env.example" << EOF
 # Example environment configuration
@@ -62,7 +62,7 @@ EOF
   if [ ! -f "$PROJECT_ROOT/.env" ]; then
     cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
     echo -e "${GREEN} Created .env from template${NC}"
-    echo -e "${YELLOW}  Remember to update your environment variables in .env${NC}"
+    echo -e "${YELLOW}ï¿½ Remember to update your environment variables in .env${NC}"
   fi
 fi
 
