@@ -1,0 +1,31 @@
+# Environment configuration
+.env
+.init
+
+# Build artifacts
+build/
+*.go
+*.so
+*.o
+
+# Editor files
+*~
+.#*
+\#*\#
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Compiled documentation
+docs/generated/
+
+# Temporary files
+*.tmp
+*.log
+
+# macOS specific
+.DS_Store
+
+# FreeBSD specific
+*.core
