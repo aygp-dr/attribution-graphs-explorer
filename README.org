@@ -1,0 +1,150 @@
+#+TITLE: Attribution Graphs Explorer
+#+AUTHOR: AYGP-DR Research Team
+#+OPTIONS: toc:3 num:t
+
+* Attribution Graphs Explorer
+
+A toolkit for exploring attribution graphs and circuit tracing in transformer models, implemented in Guile Scheme.
+
+** Overview
+
+Attribution Graphs Explorer is a framework for mechanistic interpretability of transformer models based on circuit tracing methods. The toolkit allows researchers to:
+
+- Extract computational circuits from neural networks
+- Trace linear paths of information flow
+- Visualize attribution graphs
+- Test causal hypotheses through perturbation
+
+Our implementation builds on the methods described in the [[https://transformer-circuits.pub/2025/attribution-graphs/methods.html][Attribution Graphs]] research, allowing for programmatic analysis of neural network internals.
+
+[[file:docs/images/overview.png]]
+
+** Architecture
+
+The toolkit is organized around several key components:
+
+#+begin_src mermaid :file docs/architecture.png :mkdirp t
+graph TD
+    A[Input Tokens] --> B[Token Embeddings]
+    B --> C[Cross-Layer Transcoder]
+    C --> D[Feature Activations]
+    D --> E[Attribution Graph]
+    E --> F[Output Logits]
+    
+    style C fill:#f9f,stroke:#333,stroke-width:4px
+    style E fill:#bbf,stroke:#333,stroke-width:4px
+#+end_src
+
+*** Cross-Layer Transcoders (CLT)
+
+Cross-Layer Transcoders provide a way to bypass MLP nonlinearities, creating linear feature-to-feature interactions that can be traced through the network. The CLT modules:
+
+- Read from the residual stream at one layer
+- Contribute to all subsequent MLP layers
+- Maintain sparse feature representations
+
+*** Attribution Graphs
+
+Attribution graphs represent the computational flow as a directed graph:
+
+- *Nodes*: Features, tokens, and logits
+- *Edges*: Attribution weights between features
+- *Paths*: Computational circuits through the network
+
+*** Circuit Discovery
+
+The toolkit provides algorithms for finding interpretable circuits:
+
+- Path tracing algorithms
+- Circuit motif identification
+- Circuit visualization
+
+*** Validation Framework
+
+Test hypotheses about discovered circuits:
+
+- Perturbation experiments
+- Causal validation
+- Sparsity and concentration metrics
+
+** Getting Started
+
+*** Installation
+
+#+begin_src shell
+git clone https://github.com/aygp-dr/attribution-graphs-explorer.git
+cd attribution-graphs-explorer
+#+end_src
+
+*** Requirements
+
+- Guile Scheme 2.2+
+- SRFI libraries (1, 9, 43)
+
+*** Basic Usage
+
+#+begin_src scheme
+;; Load the framework
+(add-to-load-path "/path/to/attribution-graphs-explorer")
+(use-modules (attribution-graphs clt transcoder)
+             (attribution-graphs graph attribution)
+             (attribution-graphs circuits discovery))
+
+;; Create a cross-layer transcoder
+(define my-clt (make-clt 5 '(6 7 8) 768 128 768))
+
+;; Generate attribution graph
+(define graph (compute-attribution-graph my-clt "Example input" 'last-token))
+
+;; Find and visualize circuits
+(define circuits (find-circuits graph))
+(display (circuit->mermaid circuits graph))
+#+end_src
+
+** Examples
+
+The repository includes example applications:
+
+*** Poetry Generation Circuit
+
+Analyzes how transformer models plan rhyming in poetry:
+
+#+begin_src scheme
+(use-modules (attribution-graphs examples poetry-circuit))
+(analyze-poetry-planning model "Roses are red\nViolets are ")
+#+end_src
+
+*** Multi-hop Reasoning Circuit
+
+Traces factual recall with intermediate reasoning steps:
+
+#+begin_src scheme
+(use-modules (attribution-graphs examples reasoning-circuit))
+(analyze-multihop-reasoning model "The capital of the state containing Dallas is")
+#+end_src
+
+** Research Context
+
+This toolkit builds on recent work in mechanistic interpretability of large language models:
+
+- [[https://transformer-circuits.pub/2025/attribution-graphs/methods.html][Attribution Graphs Methods]] - The core technical approach
+- [[https://transformer-circuits.pub/2025/attribution-graphs/biology.html][Attribution Graphs Biology]] - Application to biological knowledge
+- [[https://transformer-circuits.pub/][Transformer Circuits]] - Broader context of circuit analysis
+- [[https://distill.pub/2020/circuits/][Circuits: Zoom In on Neurons]] - Foundational work on circuit analysis in vision models
+
+** License
+
+MIT License
+
+** Citation
+
+If you use this toolkit in your research, please cite:
+
+#+begin_src bibtex
+@software{attribution_graphs_explorer,
+  author = {AYGP-DR Research Team},
+  title = {Attribution Graphs Explorer: A Toolkit for Circuit Tracing in Transformer Models},
+  url = {https://github.com/aygp-dr/attribution-graphs-explorer},
+  year = {2025},
+}
+#+end_src
