@@ -1,0 +1,482 @@
+/* Attribution Graphs Explorer - Interactive Visualization Styles */
+
+:root {
+  --primary-color: #3498db;
+  --secondary-color: #2ecc71;
+  --accent-color: #e74c3c;
+  --warning-color: #f39c12;
+  --dark-color: #2c3e50;
+  --light-color: #ecf0f1;
+  --border-color: #bdc3c7;
+  --text-color: #2c3e50;
+  --background-color: #ffffff;
+  --panel-background: #f8f9fa;
+  --hover-color: #ebf3fd;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  line-height: 1.6;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Header */
+.header {
+  background-color: var(--dark-color);
+  color: white;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  z-index: 1000;
+}
+
+.title h1 {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.title p {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.nav button {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav button:hover {
+  background-color: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.5);
+}
+
+/* Main Content */
+.main-content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Control Panel */
+.control-panel {
+  width: 300px;
+  background-color: var(--panel-background);
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.control-panel section {
+  margin-bottom: 2rem;
+}
+
+.control-panel h3 {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  color: var(--dark-color);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
+}
+
+.control-group {
+  margin-bottom: 1rem;
+}
+
+.control-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.control-group input[type="range"] {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.control-group input[type="checkbox"] {
+  margin-right: 0.5rem;
+}
+
+button {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease;
+}
+
+button:hover {
+  background-color: #2980b9;
+}
+
+button:disabled {
+  background-color: var(--border-color);
+  cursor: not-allowed;
+}
+
+/* Graph Container */
+.graph-container {
+  flex: 1;
+  position: relative;
+  background-color: white;
+  border-right: 1px solid var(--border-color);
+  min-height: 0;
+}
+
+#graph-canvas {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+#minimap {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 200px;
+  height: 150px;
+  background-color: rgba(255,255,255,0.9);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  z-index: 100;
+}
+
+.graph-controls {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 100;
+}
+
+.graph-controls button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Info Panel */
+.info-panel {
+  width: 300px;
+  background-color: var(--panel-background);
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.info-panel section {
+  margin-bottom: 2rem;
+}
+
+.info-panel h3 {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  color: var(--dark-color);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
+}
+
+#node-info {
+  background-color: white;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 1rem;
+  min-height: 200px;
+}
+
+.node-property {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.node-property:last-child {
+  border-bottom: none;
+}
+
+.property-label {
+  font-weight: 500;
+  color: var(--dark-color);
+}
+
+.property-value {
+  color: var(--text-color);
+  font-family: monospace;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  background-color: white;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.stat-label {
+  font-weight: 500;
+}
+
+.stat-value {
+  font-family: monospace;
+  color: var(--primary-color);
+  font-weight: bold;
+}
+
+/* Status Bar */
+.status-bar {
+  background-color: var(--light-color);
+  border-top: 1px solid var(--border-color);
+  padding: 0.5rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  color: var(--dark-color);
+}
+
+/* Circuit List */
+.circuit-list label {
+  display: block;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  background-color: white;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.circuit-list label:hover {
+  background-color: var(--hover-color);
+}
+
+.circuit-list input[type="radio"] {
+  margin-right: 0.5rem;
+}
+
+/* Node Types in Graph */
+.node-feature {
+  fill: var(--primary-color);
+}
+
+.node-token {
+  fill: var(--secondary-color);
+}
+
+.node-logit {
+  fill: #9b59b6;
+}
+
+.node-error {
+  fill: var(--accent-color);
+}
+
+/* Edge Strength Classes */
+.edge-very-strong {
+  stroke: var(--accent-color);
+  stroke-width: 4px;
+}
+
+.edge-strong {
+  stroke: var(--warning-color);
+  stroke-width: 3px;
+}
+
+.edge-medium {
+  stroke: var(--primary-color);
+  stroke-width: 2px;
+}
+
+.edge-weak {
+  stroke: var(--border-color);
+  stroke-width: 1px;
+}
+
+.edge-very-weak {
+  stroke: #ddd;
+  stroke-width: 1px;
+  stroke-dasharray: 2,2;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .control-panel,
+  .info-panel {
+    width: 250px;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .control-panel,
+  .info-panel {
+    width: 100%;
+    height: 200px;
+  }
+  
+  .graph-container {
+    flex: 1;
+    min-height: 400px;
+  }
+  
+  .nav {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .nav button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+  }
+  
+  #minimap {
+    width: 150px;
+    height: 100px;
+  }
+}
+
+/* Loading States */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  height: 100%;
+  color: var(--border-color);
+}
+
+.loading::after {
+  content: '';
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--border-color);
+  border-top: 4px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-top: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Tooltips */
+.tooltip {
+  position: absolute;
+  background-color: rgba(0,0,0,0.8);
+  color: white;
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  pointer-events: none;
+  z-index: 1000;
+  max-width: 200px;
+}
+
+/* Modal Dialogs */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background-color: white;
+  border-radius: 8px;
+  padding: 2rem;
+  max-width: 90%;
+  max-height: 90%;
+  overflow: auto;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--border-color);
+}
+
+.modal-close:hover {
+  color: var(--text-color);
+}
+
+/* Accessibility */
+button:focus,
+input:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
