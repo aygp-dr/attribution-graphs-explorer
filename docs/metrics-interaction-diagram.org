@@ -1,0 +1,110 @@
+#+TITLE: Metrics Interaction Diagram
+#+AUTHOR: Claude (AI Assistant) 
+#+DATE: 2025-06-01
+#+OPTIONS: toc:nil
+
+* Metrics Interaction with Attribution Graph
+
+This diagram shows how the various validation metrics interact with the attribution graph structure and feed into the confidence scoring system.
+
+#+begin_src mermaid :file metrics-interaction.png :mkdirp t
+graph TD
+    %% Input layer
+    A[Attribution Graph] --> B[Structural Analysis]
+    A --> C[Statistical Analysis] 
+    A --> D[Causal Analysis]
+    
+    %% Structural metrics
+    B --> E[Graph Sparsity<br/>density = edges/max_edges]
+    B --> F[Attribution Concentration<br/>90% threshold analysis]
+    B --> G[Path Coverage<br/>important paths captured]
+    
+    %% Statistical metrics
+    C --> H[Circuit Stability<br/>cross-input consistency]
+    C --> I[Attribution Coherence<br/>spatial clustering]
+    C --> J[Bootstrap CI<br/>confidence intervals]
+    C --> K[Permutation Tests<br/>significance testing]
+    
+    %% Causal metrics
+    D --> L[Causal Fidelity<br/>perturbation validation]
+    D --> M[Edge Causality<br/>predicted vs observed]
+    
+    %% Integration layer
+    E --> N[Method Comparison]
+    F --> N
+    G --> N
+    H --> O[Confidence Scoring]
+    I --> O
+    J --> O
+    K --> P[Significance Testing]
+    L --> O
+    M --> O
+    
+    %% Output layer
+    N --> Q[Enhanced Method Comparison<br/>with statistical validation]
+    O --> R[Circuit Validation Decision<br/>accept/reject circuits]
+    P --> R
+    Q --> S[Research Conclusions<br/>validated circuits]
+    R --> S
+    
+    %% Styling
+    style A fill:#f9f,stroke:#333,stroke-width:4px
+    style O fill:#bbf,stroke:#333,stroke-width:4px
+    style R fill:#bfb,stroke:#333,stroke-width:4px
+    style S fill:#fbf,stroke:#333,stroke-width:2px
+    
+    %% Groups
+    subgraph "Core Metrics"
+        E
+        F  
+        G
+    end
+    
+    subgraph "Statistical Validation"
+        H
+        I
+        J
+        K
+    end
+    
+    subgraph "Causal Validation"
+        L
+        M
+    end
+    
+    subgraph "Decision Framework"
+        O
+        P
+        R
+    end
+#+end_src
+
+** Metric Dependencies
+
+*** Primary Dependencies
+- *Structural metrics* depend only on graph topology
+- *Statistical metrics* require multiple samples/inputs
+- *Causal metrics* require model access for perturbation
+
+*** Secondary Dependencies  
+- *Confidence scoring* aggregates all metric types
+- *Significance testing* requires null distributions
+- *Method comparison* integrates structural and statistical results
+
+** Validation Workflow
+
+1. **Graph Analysis**: Extract structural, statistical, and causal metrics
+2. **Statistical Testing**: Bootstrap confidence intervals and permutation tests
+3. **Confidence Scoring**: Weighted combination of all validation dimensions
+4. **Decision Making**: Accept/reject circuits based on confidence thresholds
+5. **Method Comparison**: Compare different attribution methods with statistical rigor
+
+** Metric Weights in Confidence Scoring
+
+Current weighting scheme:
+- Causal Fidelity: 40% (most important for validity)
+- Circuit Stability: 30% (consistency across inputs)
+- Attribution Coherence: 20% (structural meaningfulness)
+- Path Coverage: 10% (completeness measure)
+
+These weights can be adjusted based on research priorities and validation requirements.

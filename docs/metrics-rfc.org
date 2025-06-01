@@ -1,0 +1,187 @@
+#+TITLE: RFC: Enhanced Statistical Validation Metrics for Circuit Discovery
+#+AUTHOR: Claude (AI Assistant)
+#+DATE: 2025-06-01
+#+OPTIONS: toc:2 num:t
+
+* Abstract
+
+This RFC proposes enhancements to the metrics validation module in Attribution Graphs Explorer to provide more robust statistical validation of discovered circuits. The current implementation provides basic metrics but lacks statistical rigor needed for reliable circuit validation in mechanistic interpretability research.
+
+* Background
+
+The current =src/validation/metrics.scm= module provides foundational metrics:
+- Graph sparsity
+- Path coverage  
+- Attribution concentration
+- Basic method comparison
+
+However, these metrics lack statistical validation, confidence scoring, and significance testing necessary for scientific rigor in circuit discovery.
+
+* Proposed Additional Metrics
+
+** 1. Circuit Stability Metric
+
+*** Motivation
+Circuits should be stable across similar inputs and perturbations. A stable circuit maintains its structure when subjected to small input variations.
+
+*** Implementation
+- Compute circuit structure across multiple related inputs
+- Measure structural similarity using graph edit distance
+- Return stability score [0,1] where 1 = perfectly stable
+
+*** Statistical Properties
+- Bootstrap confidence intervals across input sets
+- Significance testing against random baseline
+
+** 2. Attribution Coherence Metric  
+
+*** Motivation
+Attribution weights should follow coherent patterns - high weights should cluster along meaningful paths rather than being randomly distributed.
+
+*** Implementation
+- Analyze spatial clustering of high-attribution edges
+- Use local Moran's I statistic for spatial autocorrelation
+- Compare against random weight distribution
+
+*** Statistical Properties
+- Z-score testing for significance
+- Confidence intervals via permutation testing
+
+** 3. Causal Fidelity Metric
+
+*** Motivation
+Attribution graphs should reflect true causal relationships, validated through perturbation experiments.
+
+*** Implementation
+- Systematic perturbation of high-attribution edges
+- Measure correlation between predicted and observed effects
+- Account for indirect effects through multiple paths
+
+*** Statistical Properties
+- Correlation confidence intervals
+- Significance testing vs. null hypothesis of no causal relationship
+
+* Confidence Scoring System
+
+** Circuit-Level Confidence Score
+
+Aggregate confidence across multiple validation dimensions:
+
+#+begin_src scheme
+confidence = weighted-average(
+  stability-score * w1,
+  coherence-score * w2, 
+  causal-fidelity * w3,
+  coverage-score * w4
+)
+#+end_src
+
+** Edge-Level Confidence
+
+Individual edge reliability:
+- Perturbation validation score
+- Consistency across multiple runs
+- Statistical significance of attribution weight
+
+* Significance Testing Framework
+
+** Bootstrap Methodology
+- Resample circuits from multiple model runs
+- Generate confidence intervals for all metrics
+- Test stability of metric values
+
+** Permutation Testing
+- Shuffle attribution weights to create null distribution
+- Compare observed metrics against null hypothesis
+- Provide p-values for metric significance
+
+** Multiple Testing Correction
+- Bonferroni or FDR correction for multiple metrics
+- Family-wise error rate control
+
+* Metric Interaction Diagram
+
+#+begin_src mermaid
+graph TD
+    A[Attribution Graph] --> B[Structural Metrics]
+    A --> C[Statistical Metrics] 
+    A --> D[Causal Metrics]
+    
+    B --> E[Sparsity]
+    B --> F[Concentration]
+    B --> G[Coverage]
+    
+    C --> H[Stability]
+    C --> I[Coherence]
+    C --> J[Significance Tests]
+    
+    D --> K[Causal Fidelity]
+    D --> L[Perturbation Validation]
+    
+    E --> M[Confidence Scoring]
+    F --> M
+    G --> M
+    H --> M
+    I --> M
+    J --> M
+    K --> M
+    L --> M
+    
+    M --> N[Circuit Validation Decision]
+    
+    style A fill:#f9f,stroke:#333,stroke-width:4px
+    style M fill:#bbf,stroke:#333,stroke-width:4px
+    style N fill:#bfb,stroke:#333,stroke-width:4px
+#+end_src
+
+* Implementation Plan
+
+** Phase 1: Core Statistical Functions
+- Bootstrap sampling utilities
+- Permutation testing framework
+- Confidence interval calculations
+
+** Phase 2: New Metrics
+- Circuit stability metric
+- Attribution coherence metric  
+- Causal fidelity metric
+
+** Phase 3: Integration
+- Confidence scoring system
+- Enhanced method comparison
+- Comprehensive test suite
+
+* API Design
+
+#+begin_src scheme
+;; New exports
+(circuit-stability graph circuits test-inputs)
+(attribution-coherence graph)  
+(causal-fidelity graph model test-inputs)
+(circuit-confidence graph circuits model test-inputs)
+(significance-tests graph null-graphs alpha)
+(compare-methods-enhanced graphs labels test-inputs)
+#+end_src
+
+* Testing Strategy
+
+** Unit Tests
+- Individual metric calculations
+- Statistical function correctness
+- Edge case handling
+
+** Integration Tests  
+- End-to-end validation workflows
+- Performance with large graphs
+- Cross-method consistency
+
+** Validation Tests
+- Synthetic ground-truth circuits
+- Known failure cases
+- Comparison with baseline methods
+
+* References
+
+- Mechanistic Interpretability literature
+- Graph analysis methods in network science
+- Statistical testing in computational biology
