@@ -29,7 +29,7 @@
   (make-edge source target weight)
   edge?
   (source edge-source)   ; Source node ID
-  (target edge-target)   ; Target node ID  
+  (target edge-target)   ; Target node ID
   (weight edge-weight))  ; Attribution weight
 
 ;; Attribution graph
@@ -42,27 +42,27 @@
 ;; Constructor
 (define (make-attribution-graph)
   "Create empty attribution graph"
-  (make-attribution-graph-internal 
+  (make-attribution-graph-internal
    (make-hash-table)  ; nodes by ID
    '()))              ; list of edges
 
 ;; Add node to graph
 (define (add-node! graph node)
   "Add node to attribution graph"
-  (hash-set! (graph-nodes-internal graph) 
-             (node-id node) 
+  (hash-set! (graph-nodes-internal graph)
+             (node-id node)
              node))
 
 ;; Add edge to graph
 (define (add-edge! graph edge)
   "Add edge to attribution graph"
-  (graph-set-edges! graph 
+  (graph-set-edges! graph
                     (cons edge (graph-edges-internal graph))))
 
 ;; Getters
 (define (graph-nodes graph)
   "Get all nodes as list"
-  (hash-map->list (lambda (k v) v) 
+  (hash-map->list (lambda (k v) v)
                   (graph-nodes-internal graph)))
 
 (define (graph-edges graph)

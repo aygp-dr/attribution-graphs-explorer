@@ -18,7 +18,7 @@
                     (node-id node)
                     (feature->label node)))
           (graph-nodes graph))
-     ;; Edge definitions  
+     ;; Edge definitions
      (map (lambda (edge)
             (format #f "    ~a -->|~,2f| ~a"
                     (edge-source edge)
@@ -40,7 +40,7 @@
             (if (null? nodes)
                 ""
                 (format #f "    style ~a ~a"
-                        (string-join (map (lambda (n) 
+                        (string-join (map (lambda (n)
                                            (symbol->string (node-id n)))
                                          nodes) ",")
                         style))))
@@ -61,7 +61,7 @@
                 ;; Mark edges in path
                 (let loop ((nodes path))
                   (when (>= (length nodes) 2)
-                    (hash-set! circuit-edges 
+                    (hash-set! circuit-edges
                                (cons (car nodes) (cadr nodes)) #t)
                     (loop (cdr nodes)))))
               circuit)
@@ -73,8 +73,8 @@
   "Convert feature node to readable label"
   (let ((metadata (node-metadata node)))
     (case (node-type node)
-      ((feature) 
-       (format #f "F~a: ~a" 
+      ((feature)
+       (format #f "F~a: ~a"
                (node-id node)
                (hash-ref metadata 'interpretation "?")))
       ((token)

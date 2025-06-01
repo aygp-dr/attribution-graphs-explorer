@@ -19,8 +19,8 @@
   (let ((matrix (make-vector rows)))
     (do ((i 0 (+ i 1)))
         ((>= i rows) matrix)
-      (vector-set! matrix i 
-                   (list->vector 
+      (vector-set! matrix i
+                   (list->vector
                     (map (lambda (_) (- (random:uniform) 0.5))
                          (iota cols)))))))
 
