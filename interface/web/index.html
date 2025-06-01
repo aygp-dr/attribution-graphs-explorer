@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attribution Graph Explorer - Interactive Interface</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <h1>Attribution Graph Explorer</h1>
+        <div class="graph-info">
+            <span id="graph-name">Loading...</span>
+            <span id="method-name"></span>
+        </div>
+        <div class="toolbar">
+            <button id="load-graph" class="btn">Load Graph</button>
+            <button id="export-svg" class="btn">Export SVG</button>
+            <button id="reset-view" class="btn">Reset View</button>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <!-- Control Panel -->
+        <aside class="control-panel">
+            <section class="filters-section">
+                <h3>Filters</h3>
+                
+                <div class="filter-group">
+                    <label for="threshold-slider">Attribution Threshold</label>
+                    <input type="range" id="threshold-slider" min="0" max="1" step="0.01" value="0.1">
+                    <span id="threshold-value">0.1</span>
+                    <div class="node-count">Showing: <span id="visible-nodes">0</span> nodes</div>
+                </div>
+
+                <div class="filter-group">
+                    <label for="layer-range">Layer Range</label>
+                    <div class="range-slider">
+                        <input type="range" id="layer-min" min="0" max="10" value="0">
+                        <input type="range" id="layer-max" min="0" max="10" value="10">
+                    </div>
+                    <div class="range-display">
+                        Layers <span id="layer-min-val">0</span> to <span id="layer-max-val">10</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="circuits-section">
+                <h3>Circuits</h3>
+                <div id="circuit-list">
+                    <!-- Dynamically populated -->
+                </div>
+                <button id="discover-circuits" class="btn btn-secondary">Discover New</button>
+            </section>
+
+            <section class="layout-section">
+                <h3>Layout</h3>
+                <div class="radio-group">
+                    <label><input type="radio" name="layout" value="force" checked> Force-Directed</label>
+                    <label><input type="radio" name="layout" value="layered"> Hierarchical</label>
+                    <label><input type="radio" name="layout" value="circular"> Circular</label>
+                </div>
+                <div class="layout-controls">
+                    <button id="apply-layout" class="btn btn-secondary">Apply</button>
+                    <button id="reset-layout" class="btn btn-secondary">Reset</button>
+                </div>
+            </section>
+
+            <section class="actions-section">
+                <h3>Export</h3>
+                <button id="export-svg-btn" class="btn btn-secondary">Export SVG</button>
+                <button id="export-json-btn" class="btn btn-secondary">Export JSON</button>
+                <button id="screenshot-btn" class="btn btn-secondary">Screenshot</button>
+                <button id="generate-report" class="btn btn-secondary">Generate Report</button>
+            </section>
+        </aside>
+
+        <!-- Graph Visualization -->
+        <section class="graph-container">
+            <div class="graph-toolbar">
+                <div class="zoom-controls">
+                    <button id="zoom-in" class="btn btn-small">+</button>
+                    <button id="zoom-out" class="btn btn-small">-</button>
+                    <button id="zoom-fit" class="btn btn-small">Fit</button>
+                </div>
+                <div class="graph-stats">
+                    Zoom: <span id="zoom-level">100%</span>
+                </div>
+            </div>
+            
+            <div id="graph-canvas" class="graph-canvas">
+                <!-- D3.js visualization will be rendered here -->
+            </div>
+
+            <div class="minimap">
+                <canvas id="minimap-canvas" width="150" height="100"></canvas>
+            </div>
+        </section>
+
+        <!-- Inspector Panel -->
+        <aside class="inspector-panel">
+            <div id="inspector-content">
+                <div class="no-selection">
+                    <h3>Inspector</h3>
+                    <p>Click a node or edge to view details</p>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- File Input Modal -->
+    <div id="file-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Load Attribution Graph</h2>
+            <div class="file-input-area">
+                <input type="file" id="file-input" accept=".json" />
+                <label for="file-input">Choose JSON file</label>
+                <div class="file-info">
+                    <p>Select an attribution graph JSON file exported from the Scheme system</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="context-menu" class="context-menu">
+        <ul>
+            <li data-action="inspect">Inspect</li>
+            <li data-action="trace-paths">Trace Paths</li>
+            <li data-action="highlight">Highlight Circuit</li>
+            <li data-action="hide">Hide Node</li>
+            <li class="separator"></li>
+            <li data-action="export-info">Export Info</li>
+        </ul>
+    </div>
+
+    <!-- Tooltip -->
+    <div id="tooltip" class="tooltip"></div>
+
+    <!-- Scripts -->
+    <script src="js/graph-viz.js"></script>
+    <script src="js/controls.js"></script>
+    <script src="js/export.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

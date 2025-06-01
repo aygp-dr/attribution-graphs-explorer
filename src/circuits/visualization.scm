@@ -1,9 +1,12 @@
 (define-module (attribution-graphs circuits visualization)
   #:use-module (srfi srfi-1)
   #:use-module (attribution-graphs graph structure)
+  #:use-module (attribution-graphs interface export)
   #:export (graph->mermaid
             circuit->mermaid
-            feature->label))
+            feature->label
+            graph->web-json
+            launch-interactive-interface))
 
 ;; Convert attribution graph to Mermaid diagram
 (define (graph->mermaid graph)
@@ -97,3 +100,34 @@
    "graph TD\n"
    ;; ... implementation ...
    ))
+
+;; NEW: Interactive web interface integration
+
+;; Export graph to web-compatible JSON format
+(define (graph->web-json graph . circuits)
+  "Convert attribution graph to JSON for web interface"
+  (let ((circuits-list (if (null? circuits) '() (car circuits))))
+    (graph->json graph circuits-list)))
+
+;; Launch interactive web interface
+(define (launch-interactive-interface graph . args)
+  "Launch web interface for interactive graph exploration"
+  (let* ((circuits (if (null? args) '() (car args)))
+         (port (if (and (not (null? args)) (> (length args) 1))
+                   (cadr args)
+                   8080))
+         (json-file "temp-graph.json"))
+    
+    ;; Export graph to temporary JSON file
+    (export-graph-file graph json-file circuits)
+    
+    ;; Start web server
+    (format #t "Launching interactive interface...~%")
+    (format #t "Graph exported to: ~a~%" json-file)
+    (format #t "Starting server on port ~a~%" port)
+    (format #t "Open browser to: http://localhost:~a~%" port)
+    
+    ;; This would start the server - for now just show instructions
+    (format #t "~%To start the server manually, run:~%")
+    (format #t "  guile -L . src/interface/server.scm ~a~%" port)
+    (format #t "~%Then load the graph file ~a in the web interface.~%" json-file)))
