@@ -1,5 +1,6 @@
 #+TITLE: Kitchen Operations - Repository Command Management
-#+PROPERTY: header-args :mkdirp yes :comments no
+#+PROPERTY: header-args :mkdirp yes :comments link
+#+PROPERTY: header-args:markdown :comments link :comment-start "<!--" :comment-end "-->"
 
 * Tangle Instructions
   To tangle all commands:

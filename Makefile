@@ -101,4 +101,7 @@ install: build ## Install the project
 
 tangle-commands: ## Tangle command files from kitchen-ops.org
 	@echo "Tangling command files from kitchen-ops.org..."
-	@emacs --batch -l org --eval "(org-babel-tangle-file \"kitchen-ops.org\")"
+	@emacs --batch -l org \
+		--eval "(setq-default comment-start \"<!-- \")" \
+		--eval "(setq-default comment-end \" -->\")" \
+		--eval "(org-babel-tangle-file \"kitchen-ops.org\")"

@@ -1,3 +1,4 @@
+<!-- [[file:../../kitchen-ops.org::*Mise en Place - Daily Setup][Mise en Place - Daily Setup:1]] -->
 # Mise en Place - Everything in its Place
 
 Morning prep checklist:
@@ -8,3 +9,4 @@ Morning prep checklist:
 - [ ] Check CI/CD status
 - [ ] Review PRs awaiting action
 - [ ] Clear notification backlog
+<!-- Mise en Place - Daily Setup:1 ends here -->
