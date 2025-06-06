@@ -13,7 +13,7 @@ EXAMPLEDIR = examples
 DOCDIR = docs
 
 # Default target is help
-.PHONY: help build run test clean lint setup deps all check distcheck configure install
+.PHONY: help build run test clean lint setup deps all check distcheck configure install tangle-commands
 
 # Pattern rule to catch unknown targets
 %:
@@ -98,3 +98,7 @@ distcheck: check ## Verify distribution can be built correctly
 install: build ## Install the project
 	@echo "Installing Attribution Graphs Explorer..."
 	@echo "Installation is not implemented yet."
+
+tangle-commands: ## Tangle command files from kitchen-ops.org
+	@echo "Tangling command files from kitchen-ops.org..."
+	@emacs --batch -l org --eval "(org-babel-tangle-file \"kitchen-ops.org\")"
