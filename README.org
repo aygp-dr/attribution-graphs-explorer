@@ -4,6 +4,10 @@
 
 * Attribution Graphs Explorer
 
+[[https://img.shields.io/badge/Guile-3.0+-blue.svg][https://img.shields.io/badge/Guile-3.0+-blue.svg]]
+[[https://img.shields.io/badge/License-MIT-green.svg][https://img.shields.io/badge/License-MIT-green.svg]]
+[[https://img.shields.io/badge/Status-Draft-orange.svg][https://img.shields.io/badge/Status-Draft-orange.svg]]
+
 A toolkit for exploring attribution graphs and circuit tracing in transformer models, implemented in Guile Scheme.
 
 ** Overview
