@@ -1,7 +1,9 @@
 (define-module (attribution-graphs clt transcoder)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-43)
   #:use-module (attribution-graphs math activation)
+  #:use-module (attribution-graphs math matrix)
   #:export (make-clt
             clt-forward
             clt-encode

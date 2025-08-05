@@ -11,7 +11,10 @@
 ;; Create matrix filled with zeros
 (define (make-matrix rows cols)
   "Create a rows×cols matrix filled with zeros"
-  (make-vector rows (lambda () (make-vector cols 0))))
+  (let ((matrix (make-vector rows)))
+    (do ((i 0 (+ i 1)))
+        ((>= i rows) matrix)
+      (vector-set! matrix i (make-vector cols 0)))))
 
 ;; Create random matrix (simplified)
 (define (make-random-matrix rows cols)
@@ -21,7 +24,7 @@
         ((>= i rows) matrix)
       (vector-set! matrix i
                    (list->vector
-                    (map (lambda (_) (- (random:uniform) 0.5))
+                    (map (lambda (_) (- (/ (random 1000) 1000.0) 0.5))
                          (iota cols)))))))
 
 ;; Get row from matrix

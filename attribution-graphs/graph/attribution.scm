@@ -73,11 +73,12 @@
 (define (backward-pass-attributions! layer-features graph target-token)
   "Compute attributions backward from target"
   ;; Start from output logits
-  (let ((n-layers (hash-count layer-features)))
+  (let ((n-layers (hash-fold (lambda (k v acc) (+ acc 1)) 0 layer-features)))
     (do ((l (- n-layers 1) (- l 1)))
         ((< l 1))
       (let ((curr-features (hash-ref layer-features l))
             (prev-features (hash-ref layer-features (- l 1))))
         ;; Compute attributions between layers
         ;; Add nodes and edges to graph
-        ))))
+        ;; (Placeholder implementation)
+        #t))))

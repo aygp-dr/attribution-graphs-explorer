@@ -9,11 +9,15 @@
             node-id
             node-type
             node-activation
+            node-metadata
             edge-source
             edge-target
             edge-weight
             graph-nodes
-            graph-edges))
+            graph-edges
+            node?
+            edge?
+            attribution-graph?))
 
 ;; Node in attribution graph
 (define-record-type <node>

@@ -1,8 +1,15 @@
 (define-module (attribution-graphs examples reasoning-circuit)
+  #:use-module (srfi srfi-1)
   #:use-module (attribution-graphs clt transcoder)
   #:use-module (attribution-graphs graph attribution)
+  #:use-module (attribution-graphs graph structure)
   #:use-module (attribution-graphs validation perturbation)
   #:export (analyze-multihop-reasoning))
+
+;; Placeholder for model CLT extraction (would be implemented for real models)
+(define (model-clt model)
+  "Extract CLT from model (placeholder)"
+  (make-clt 5 '(6 7 8) 768 128 768))
 
 ;; Analyze multi-hop reasoning
 (define (analyze-multihop-reasoning model prompt)

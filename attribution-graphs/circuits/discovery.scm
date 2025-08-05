@@ -94,6 +94,12 @@
                   (> (hash-ref out-degree (node-id node) 0) 10)))
             (graph-nodes graph))))
 
+;; Pattern: Parallel paths
+(define (find-parallel-paths graph)
+  "Find parallel paths in the graph"
+  ;; Placeholder implementation
+  '(parallel-paths))
+
 ;; Helper utilities
 (define (max-by fn lst)
   "Find element that maximizes fn"

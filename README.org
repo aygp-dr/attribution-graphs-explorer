@@ -4,9 +4,10 @@
 
 * Attribution Graphs Explorer
 
+[[https://img.shields.io/badge/Version-0.1.0-blue.svg][https://img.shields.io/badge/Version-0.1.0-blue.svg]]
 [[https://img.shields.io/badge/Guile-3.0+-blue.svg][https://img.shields.io/badge/Guile-3.0+-blue.svg]]
 [[https://img.shields.io/badge/License-MIT-green.svg][https://img.shields.io/badge/License-MIT-green.svg]]
-[[https://img.shields.io/badge/Status-Draft-orange.svg][https://img.shields.io/badge/Status-Draft-orange.svg]]
+[[https://img.shields.io/badge/Status-Alpha-orange.svg][https://img.shields.io/badge/Status-Alpha-orange.svg]]
 
 A toolkit for exploring attribution graphs and circuit tracing in transformer models, implemented in Guile Scheme.
 
@@ -83,6 +84,12 @@ cd attribution-graphs-explorer
 # Configure and build
 ./configure
 gmake
+
+# Run tests to verify installation
+gmake test
+
+# Run examples
+gmake run
 #+end_src
 
 *** Requirements
@@ -147,6 +154,34 @@ Traces factual recall with intermediate reasoning steps:
 (use-modules (attribution-graphs examples reasoning-circuit))
 (analyze-multihop-reasoning model "The capital of the state containing Dallas is")
 #+end_src
+
+** Development Status
+
+This project is currently in *alpha* status (version 0.1.0). The core framework is implemented and functional, but several components are placeholders for demonstration purposes:
+
+*** Implemented Features
+- Core data structures (CLT, attribution graphs, nodes, edges)
+- Basic mathematical operations (activation functions, matrix operations)
+- Graph construction and manipulation
+- Circuit discovery algorithms
+- Visualization generation (Mermaid diagrams)
+- Example applications (poetry and reasoning circuits)
+- Test framework
+
+*** Limitations
+- Matrix operations use simplified random generation
+- Some functions are placeholders (e.g., =embed-tokens=, =find-edge=)
+- No actual model integration (uses mock CLT instances)
+- Limited validation framework
+- No real-world model examples
+
+*** Future Development
+- Integration with actual transformer models
+- Improved matrix operations and numerical methods
+- Enhanced visualization capabilities
+- More comprehensive test suite
+- Performance optimizations
+- Additional circuit discovery algorithms
 
 ** Research Context
 

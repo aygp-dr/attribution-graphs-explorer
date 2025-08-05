@@ -51,12 +51,12 @@ build: ## Compile Scheme files
 
 run: ## Run examples
 	@echo "Running examples..."
-	@$(GUILE) -L . $(EXAMPLEDIR)/run-all.scm
+	@$(GUILE) -L . attribution-graphs/examples/run-all.scm
 
 test: ## Run tests (when available)
 	@echo "Running tests..."
-	@if [ -d "tests" ]; then \
-		$(GUILE) -L . -c "(display \"Running tests...\")(newline)"; \
+	@if [ -f "tests/minimal-test.scm" ]; then \
+		$(GUILE) -L . tests/minimal-test.scm; \
 	else \
 		echo "No tests available yet."; \
 	fi
