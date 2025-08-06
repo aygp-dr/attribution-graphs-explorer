@@ -1,0 +1,30 @@
+Context:
+- User requested adding project name/root configuration and tmux/Emacs setup for Scheme development
+- Implemented on FreeBSD 14.3-RELEASE with Guile3 environment
+
+Considerations:
+- Used direnv's PROJECT_NAME and PROJECT_ROOT env vars for consistency across tools
+- Emacs config loads necessary packages (geiser, paredit, org, tramp) for full Scheme IDE
+- Tmux session management includes TTY tracking for debugging
+- Make target checks for existing sessions to prevent duplicates
+
+Technical Decisions:
+- Chose emacs -nw -Q -l for clean, terminal-based Emacs with only project config
+- Configured Geiser specifically for Guile3 (FreeBSD's default Guile package)
+- Added PROJECT_NAME/ROOT as Make variables with ?= for override capability
+- Session name derived from PROJECT_NAME for consistency
+
+Issues/Limitations:
+- Emacs packages auto-install on first run if not present
+- Requires tmux and emacs to be installed (not enforced in deps)
+- TTY output from tmux list-panes helps with TRAMP or remote debugging
+
+Timing:
+- Implementation: ~5 minutes
+- Testing considerations for tmux session lifecycle
+- Compatible with existing mise-en-place workflow
+
+Future Enhancements:
+- Could add automatic package.el bootstrap if MELPA not configured
+- Session persistence/restore capabilities
+- Integration with direnv auto-hooks
