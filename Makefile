@@ -7,13 +7,17 @@ MAKE = gmake
 GREP = ggrep
 AWK = gawk
 
+# Project configuration
+PROJECT_NAME ?= attribution-graphs-explorer
+PROJECT_ROOT ?= $(shell pwd)
+
 # Directories
 SRCDIR = src
 EXAMPLEDIR = examples
 DOCDIR = docs
 
 # Default target is help
-.PHONY: help build run test clean lint setup deps all check distcheck configure install tangle-commands
+.PHONY: help build run test clean lint setup deps all check distcheck configure install tangle-commands emacs-session
 
 # Pattern rule to catch unknown targets
 %:
@@ -105,3 +109,12 @@ tangle-commands: ## Tangle command files from kitchen-ops.org
 		--eval "(setq-default comment-start \"<!-- \")" \
 		--eval "(setq-default comment-end \" -->\")" \
 		--eval "(org-babel-tangle-file \"kitchen-ops.org\")"
+
+emacs-session: ## Start a named tmux session with project-specific Emacs
+	@echo "Starting tmux session '$(PROJECT_NAME)' with Emacs..."
+	@tmux has-session -t $(PROJECT_NAME) 2>/dev/null && \
+		echo "Session '$(PROJECT_NAME)' already exists. Attaching..." && \
+		tmux attach-session -t $(PROJECT_NAME) || \
+		(tmux new-session -d -s $(PROJECT_NAME) "emacs -nw -Q -l $(PROJECT_ROOT)/$(PROJECT_NAME).el" && \
+		echo "Session '$(PROJECT_NAME)' created. TTY: $$(tmux list-panes -t $(PROJECT_NAME) -F '#{pane_tty}')" && \
+		echo "Attach with: tmux attach-session -t $(PROJECT_NAME)")
